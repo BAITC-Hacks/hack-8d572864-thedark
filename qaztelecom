@@ -52,7 +52,7 @@ def compare(before_data: dict, after_data: dict) -> dict:
     )
     resp = client.messages.create(
         model=MODEL, max_tokens=8000,
-        messages=[{"role": "user", "content": prompt}],
+        messages=[{"role":, "content": prompt}],
     )
     raw = resp.content[0].text.strip()
     raw = raw.removeprefix("```json").removeprefix("```").removesuffix("```").strip()
