@@ -4,7 +4,7 @@ from anthropic import Anthropic
 client = Anthropic()
 MODEL = "claude-sonnet-4-5"
 
-COMPARE_PROMPT = """Сен ұйымдық құрылымды реформаға ДЕЙІН және КЕЙІН салыстырасың.
+COMPARE_PROMPT = " ұйымдық құрылымды реформаға ДЕЙІН және КЕЙІН салыстыру.
 
 ДЕЙІНГІ бөлімдер мен қызметтер (JSON):
 {before}
