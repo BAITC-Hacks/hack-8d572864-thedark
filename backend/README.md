@@ -38,4 +38,4 @@
 
 OpenAI Responses API және Structured Outputs: https://developers.openai.com/api/docs/guides/structured-outputs
 
-Бұл сессияда dependency орнатуға рұқсат берілмеді; сондықтан нақты OpenAI сұрауымен толық тексеру әлі орындалмады. Алдымен `npm run agent:setup` іске қосыңыз.
+Кітапханалар орнатылды. `backend/test_api.py` ішіндегі 4 жергілікті тест өтеді: бес негізгі endpoint, дереккөз ID тексеруі, жарамсыз файл/сыртқы origin, .env қолжетімсіздігі. Тесттер модельді алмастырады және OpenAI-ға сұрау жібермейді. Нақты кілт пен API квотасы алғашқы талдау кезінде тексеріледі.

@@ -11,7 +11,7 @@ if (-not (Test-Path -LiteralPath $agentPython)) {
 & $agentPython -c 'import sys; sys.exit(0 if sys.version_info >= (3,10) else 1)'
 if ($LASTEXITCODE -ne 0) { throw 'Python 3.10+ is required.' }
 
-& $agentPython -c 'import sys,importlib.util; sys.path.insert(0,".backend-deps"); sys.exit(0 if all(importlib.util.find_spec(m) for m in ["fastapi","uvicorn","multipart","openai","dotenv","docx","pypdf","openpyxl"]) else 1)'
+& $agentPython backend/check_runtime.py
 if ($LASTEXITCODE -ne 0) {
     Write-Host 'Installing backend libraries (first launch only)...'
     & $agentPython -m pip install --target .backend-deps -r backend/requirements.txt --disable-pip-version-check
