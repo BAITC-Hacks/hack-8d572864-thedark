@@ -1,5 +1,7 @@
 # KT Neural Document Agent
 
+**Нақты OpenAI API қосу:** [.env.example](.env.example) негізінде жоба түбіндегі `.env` файлына кілтті енгізіңіз → `npm run agent:setup` → `npm run agent` → **http://127.0.0.1:8000**. Толық нұсқаулық: [backend/README.md](backend/README.md). Төмендегі `npm start` және үш файлдық ZIP демо режимін ашады.
+
 HackAlem AI · TheDArk · Қазақтелеком тапсырмасына арналған AI Command Center интерфейсі. Kazakhtelecom стилінен шабыт алған хакатон концепті; ресми өнім емес.
 
 ## Мәселе және шешім

@@ -137,7 +137,7 @@ function resetSession(){state.controller?.abort();evidenceController?.abort();st
 async function api(path,{method='GET',body,signal}={}){
   const controller=new AbortController();let timedOut=false;const abort=()=>controller.abort();signal?.addEventListener('abort',abort,{once:true});if(signal?.aborted)controller.abort();
   const timer=setTimeout(()=>{timedOut=true;controller.abort();},API_TIMEOUT_MS);
-  try{const response=await fetch(API_BASE+path,{method,body:body instanceof FormData?body:body===undefined?undefined:JSON.stringify(body),headers:body&&!(body instanceof FormData)?{'Content-Type':'application/json'}:undefined,signal:controller.signal});if(!response.ok)throw new Error(`API ${response.status}: ${response.statusText||'сұрау орындалмады'}`);return await response.json();}
+  try{const response=await fetch(API_BASE+path,{method,body:body instanceof FormData?body:body===undefined?undefined:JSON.stringify(body),headers:body&&!(body instanceof FormData)?{'Content-Type':'application/json'}:undefined,signal:controller.signal});if(!response.ok){let detail='';try{const errorBody=await response.json();if(typeof errorBody.detail==='string')detail=errorBody.detail;}catch{}throw new Error(`API ${response.status}: ${detail||response.statusText||'сұрау орындалмады'}`);}return await response.json();}
   catch(error){if(timedOut)throw new Error('Сервер жауап бермеді. 120 секунд күту шегі аяқталды.');throw error;}
   finally{clearTimeout(timer);signal?.removeEventListener('abort',abort);}
 }
@@ -229,5 +229,4 @@ function dismissStartup(){$('#startup').classList.add('dismissed');setTimeout(()
 $('#skip-startup').addEventListener('click',dismissStartup);setTimeout(()=>$('#boot-status').textContent='CONNECTING NEURAL ENGINE',700);setTimeout(()=>$('#boot-status').textContent='SEMANTIC SYSTEM READY',1500);setTimeout(dismissStartup,state.motion?2400:150);
 setMotion(state.motion);renderFilters();renderDNA('a');renderDNA('b');activity(DEMO_MODE?'Демо жүйе дайын · құжаттарды қосыңыз':'Agent API режимі · құжаттарды қосыңыз');
 if(!DEMO_MODE){$('#demo-button').hidden=true;$('#system-label').textContent='AGENT API / CONNECTION ON REQUEST';$('#readiness-mode').textContent='LIVE API';$('#activity-mode').textContent='AGENT API SESSION';$('#demo-note').textContent='API · файлдар серверге жіберіледі';$('#settings-mode-copy').textContent='Нақты режим: құжаттар Agent API серверіне жіберіледі. Метрикалар серверден алынады. Интерфейс LLM кілттерін сақтамайды. AI қорытындысын бастапқы құжатпен тексеріңіз.';$('#restore-session').hidden=false;$('#boot-ready').textContent='API MODE / READY';document.querySelectorAll('.dna-panel').forEach(el=>el.hidden=true);}
-
 
