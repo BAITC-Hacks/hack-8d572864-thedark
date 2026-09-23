@@ -1,59 +1,157 @@
-import json
-from anthropic import Anthropic
+import streamlit as st
+import fitz
+from docx import Document
+from openpyxl import load_workbook
+import tempfile
+import os
 
-client = Anthropic()
-MODEL = "claude-sonnet-4-5"
+st.set_page_config(
+    page_title="OrgMind AI",
+    page_icon="🤖",
+    layout="wide"
+)
 
-COMPARE_PROMPT = """Сен ұйымдық құрылымды реформаға ДЕЙІН және КЕЙІН салыстырасың.
+st.title("🤖 OrgMind AI")
+st.write("Ұйымдық құрылым мен функцияларды талдайтын ЖИ-агент")
 
-ДЕЙІНГІ бөлімдер мен қызметтер (JSON):
-{before}
+# -----------------------------
+# ФАЙЛДЫ ОҚУ
+# -----------------------------
 
-КЕЙІНГІ бөлімдер мен қызметтер (JSON):
-{after}
+def read_pdf(file):
+    text = ""
 
-Тапсырма:
-1. Әр "дейінгі" бөлімді "кейінгі" бөліммен(дермен) сәйкестендір. Мысалы, бір лауазым/бөлім
-   екі немесе одан көп жаңа бөлімге бөлінуі мүмкін (split) — мұны міндетті түрде тап.
-   Статустар: "retained" (сақталды), "renamed" (аты өзгерді), "merged" (қосылды),
-   "split" (бөлінді), "removed" (жойылды), "new" (жаңа құрылды).
-2. Сәйкестендірілген бөлімдер үшін ДЕЙІН болған, бірақ КЕЙІН жоқ функцияларды тап
-   (жоғалған функциялар).
-3. Барлық КЕЙІНГІ бөлімдер арасынан бір функцияның екі немесе одан көп бөлімде
-   қайталанатынын тап (дублирование).
-4. Мүдделер қақтығысын тап: бір бөлім бақылау функциясы мен сол бақылайтын
-   орындау функциясын қатар атқарса, немесе жауапкершілік аймақтары анық
-   бөлінбесе — соны белгіле.
-5. Әр қорытынды МІНДЕТТІ ТҮРДЕ chunk_id(лар)ға сілтеме жасауы керек. Chunk_id-ды
-   ойдан шығармау керек, тек берілгендерді ғана қолдану керек.
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
+        tmp.write(file.getvalue())
+        path = tmp.name
 
-ТЕК валидті JSON қайтар, markdown белгілерсіз, мына схема бойынша:
-{{
-  "department_status": [
-    {{"before_name": "string|null", "after_name": "string|null", "status": "retained|renamed|merged|split|removed|new", "notes": "string"}}
-  ],
-  "lost_functions": [
-    {{"department": "string", "function": "string", "before_chunk_id": "string", "explanation": "string"}}
-  ],
-  "duplications": [
-    {{"function": "string", "departments": ["string"], "chunk_ids": ["string"], "explanation": "string"}}
-  ],
-  "conflicts_of_interest": [
-    {{"department": "string", "issue": "string", "chunk_ids": ["string"], "severity": "low|medium|high"}}
-  ],
-  "summary": "string (қазақша немесе орысша, 3-6 сөйлем, нақты ұсыныстар)"
-}}
-"""
+    document = fitz.open(path)
 
-def compare(before_data: dict, after_data: dict) -> dict:
-    prompt = COMPARE_PROMPT.format(
-        before=json.dumps(before_data, ensure_ascii=False),
-        after=json.dumps(after_data, ensure_ascii=False),
-    )
-    resp = client.messages.create(
-        model=MODEL, max_tokens=8000,
-        messages=[{"role": "user", "content": prompt}],
-    )
-    raw = resp.content[0].text.strip()
-    raw = raw.removeprefix("```json").removeprefix("```").removesuffix("```").strip()
-    return json.loads(raw)
+    for page_number, page in enumerate(document):
+        page_text = page.get_text()
+
+        text += f"\n\n--- {page_number + 1}-бет ---\n"
+        text += page_text
+
+    document.close()
+    os.remove(path)
+
+    return text
+
+
+def read_docx(file):
+    document = Document(file)
+
+    text = ""
+
+    for i, paragraph in enumerate(document.paragraphs):
+        if paragraph.text.strip():
+            text += f"\n{i + 1}-абзац: {paragraph.text}"
+
+    return text
+
+
+def read_excel(file):
+    workbook = load_workbook(file, data_only=True)
+
+    text = ""
+
+    for sheet in workbook.worksheets:
+
+        text += f"\n\nПарақ: {sheet.title}\n"
+
+        for row_number, row in enumerate(sheet.iter_rows(values_only=True), start=1):
+
+            values = []
+
+            for value in row:
+                if value is not None:
+                    values.append(str(value))
+
+            if values:
+                text += f"{row_number}-жол: {' | '.join(values)}\n"
+
+    return text
+
+
+def read_file(file):
+
+    extension = file.name.split(".")[-1].lower()
+
+    if extension == "pdf":
+        return read_pdf(file)
+
+    elif extension == "docx":
+        return read_docx(file)
+
+    elif extension == "xlsx":
+        return read_excel(file)
+
+    else:
+        return "Бұл файл форматы қолдау көрсетпейді."
+
+
+# -----------------------------
+# ИНТЕРФЕЙС
+# -----------------------------
+
+st.subheader("1. Өзгеріске дейінгі құжаттар")
+
+before_files = st.file_uploader(
+    "BEFORE құжаттарын жүктеңіз",
+    type=["pdf", "docx", "xlsx"],
+    accept_multiple_files=True,
+    key="before"
+)
+
+
+st.subheader("2. Өзгерістен кейінгі құжаттар")
+
+after_files = st.file_uploader(
+    "AFTER құжаттарын жүктеңіз",
+    type=["pdf", "docx", "xlsx"],
+    accept_multiple_files=True,
+    key="after"
+)
+
+
+if st.button("🔍 Құжаттарды талдау"):
+
+    if not before_files or not after_files:
+
+        st.warning("Before және After құжаттарын жүктеңіз.")
+
+    else:
+
+        st.success("Құжаттар сәтті оқылды!")
+
+        st.header("📄 BEFORE")
+
+        for file in before_files:
+
+            st.subheader(file.name)
+
+            try:
+                text = read_file(file)
+
+                with st.expander("Құжат мәтінін көру"):
+                    st.text(text)
+
+            except Exception as e:
+                st.error(f"Қате: {e}")
+
+
+        st.header("📄 AFTER")
+
+        for file in after_files:
+
+            st.subheader(file.name)
+
+            try:
+                text = read_file(file)
+
+                with st.expander("Құжат мәтінін көру"):
+                    st.text(text)
+
+            except Exception as e:
+                st.error(f"Қате: {e}")
