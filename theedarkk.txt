@@ -1,0 +1,49 @@
+from aiogram import Bot, Dispatcher, executor, types
+import asyncio
+
+TOKEN = "8194032448:AAGpKz21yKpR73byiZQWDa3Ao6htoTuasQs"  # Твой токен от BotFather
+CHAT_ID = -1002957251607       # Твой chat_id группы (supergroup)
+
+bot = Bot(token=TOKEN)
+dp = Dispatcher(bot)
+
+# Минимальная защита от спама: 1 сообщение каждые 30 секунд на пользователя
+user_last_time = {}
+
+# Список запрещённых слов (можешь расширить)
+bad_words = ["хуй", "пизд", "бляд", "сука"]
+
+@dp.message_handler(commands=['start'])
+async def send_welcome(message: types.Message):
+    await message.answer(
+        "Привет! Это анонимный бот для университета.\n"
+        "Напиши любое сообщение, и оно попадёт в группу анонимно.\n"
+        "⚠️ Запрещены оскорбления и угрозы!"
+    )
+
+@dp.message_handler(content_types=types.ContentType.TEXT)
+async def anonymous_message(message: types.Message):
+    user_id = message.from_user.id
+
+    # Проверка на спам
+    now = asyncio.get_event_loop().time()
+    last_time = user_last_time.get(user_id, 0)
+    if now - last_time < 30:
+        await message.answer("⏱ Подожди немного перед отправкой следующего сообщения")
+        return
+    user_last_time[user_id] = now
+
+    # Проверка на запрещённые слова
+    text_lower = message.text.lower()
+    if any(word in text_lower for word in bad_words):
+        await message.answer("⚠️ Сообщение содержит запрещённые слова!")
+        return
+
+    # Отправка в группу анонимно
+    if message.chat.type == "private":
+        await bot.send_message(chat_id=CHAT_ID, text=message.text)
+        await message.answer("✅ Ваше сообщение отправлено анонимно!")
+
+if name == "__main__":
+    executor.start_polling(dp)
+    
