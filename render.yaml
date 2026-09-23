@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: kt-neural-agent
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    autoDeployTrigger: "off"
+    envVars:
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_MODEL
+        value: gpt-4.1-mini
+      - key: MAX_MODEL_REQUESTS_PER_DAY
+        value: "30"

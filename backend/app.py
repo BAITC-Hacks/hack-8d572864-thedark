@@ -1,4 +1,4 @@
-"""Loopback-only development backend. Sessions are temporary and kept in memory."""
+"""Local-network development backend. Sessions are temporary and kept in memory."""
 import asyncio
 import json
 import os
@@ -16,23 +16,21 @@ from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
 from backend.parser import extract, MAX_BYTES, MAX_CHARS
+from backend.network import TRUSTED_HOSTS, ALLOWED_ORIGINS
 
 ROOT = Path(__file__).resolve().parents[1]
 load_dotenv(ROOT / '.env')
 app = FastAPI(title='KT Neural Document Agent', docs_url='/api/docs', redoc_url=None)
-app.add_middleware(CORSMiddleware, allow_origins=[
-    'http://127.0.0.1:8000', 'http://localhost:8000',
-    'http://127.0.0.1:5173', 'http://localhost:5173',
-], allow_methods=['GET', 'POST'], allow_headers=['Content-Type'])
+app.add_middleware(CORSMiddleware, allow_origins=sorted(ALLOWED_ORIGINS),
+                   allow_methods=['GET', 'POST'], allow_headers=['Content-Type'])
 sessions: dict[str, dict] = {}
 TTL = 3600
-ALLOWED_ORIGINS = {'http://127.0.0.1:8000', 'http://localhost:8000',
-                   'http://127.0.0.1:5173', 'http://localhost:5173'}
+model_budget = {'day': '', 'count': 0, 'active': 0}
 
 
 @app.middleware('http')
 async def local_guard(request: Request, call_next):
-    if request.headers.get('host', '').split(':')[0] not in {'localhost', '127.0.0.1', 'testserver'}:
+    if request.headers.get('host', '').split(':')[0] not in TRUSTED_HOSTS:
         return JSONResponse({'detail': 'Local access only.'}, status_code=403)
     origin = request.headers.get('origin')
     if request.method == 'POST' and origin and origin not in ALLOWED_ORIGINS:
@@ -110,6 +108,16 @@ async def ask_model(schema, task, payload):
     model = os.getenv('OPENAI_MODEL', 'gpt-4.1-mini').strip()
     if not key or key in {'your_key_here', 'sk-...'}:
         raise HTTPException(503, 'OPENAI_API_KEY жоқ. Жоба түбіндегі .env файлына кілт енгізіп, серверді қайта іске қосыңыз.')
+    day = time.strftime('%Y-%m-%d', time.gmtime())
+    if model_budget['day'] != day:
+        model_budget.update(day=day, count=0)
+    limit = int(os.getenv('MAX_MODEL_REQUESTS_PER_DAY', '0'))
+    if limit and model_budget['count'] >= limit:
+        raise HTTPException(429, 'Сайттың бүгінгі AI сұрау лимиті аяқталды. Ертең қайта көріңіз.')
+    if model_budget['active'] >= 2:
+        raise HTTPException(429, 'Агент екі сұрауды өңдеп жатыр. Біраздан соң қайта көріңіз.')
+    model_budget['count'] += 1
+    model_budget['active'] += 1
     try:
         async with AsyncOpenAI(api_key=key, timeout=100, max_retries=0) as client:
             response = await client.responses.parse(
@@ -128,6 +136,8 @@ async def ask_model(schema, task, payload):
         raise HTTPException(504, 'OpenAI серверіне қосылу немесе жауап күту уақыты аяқталды.') from None
     except APIStatusError as exc:
         raise HTTPException(502, f'OpenAI HTTP {exc.status_code}. OPENAI_MODEL және API жоба рұқсатын тексеріңіз.') from None
+    finally:
+        model_budget['active'] -= 1
 
 
 def checked_sources(ids, session):

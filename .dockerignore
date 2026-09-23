@@ -1,0 +1,9 @@
+**
+!Dockerfile
+!.dockerignore
+!index.html
+!style.css
+!script.js
+!backend/
+!backend/*.py
+!backend/requirements.txt
